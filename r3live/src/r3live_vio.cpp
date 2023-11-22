@@ -63,7 +63,7 @@ void dump_lio_state_to_log( FILE *fp )
     {
         Eigen::Vector3d rot_angle = Sophus::SO3d( Eigen::Quaterniond( g_lio_state.rot_end ) ).log();
         Eigen::Vector3d rot_ext_i2c_angle = Sophus::SO3d( Eigen::Quaterniond( g_lio_state.rot_ext_i2c ) ).log();
-        fprintf( fp, "%lf ", g_lio_state.last_update_time - g_camera_lidar_queue.m_first_imu_time ); // Time   [0]
+        fprintf( fp, "test %lf ", g_lio_state.last_update_time - g_camera_lidar_queue.m_first_imu_time ); // Time   [0]
         fprintf( fp, "%lf %lf %lf ", rot_angle( 0 ), rot_angle( 1 ), rot_angle( 2 ) );               // Angle  [1-3]
         fprintf( fp, "%lf %lf %lf ", g_lio_state.pos_end( 0 ), g_lio_state.pos_end( 1 ),
                  g_lio_state.pos_end( 2 ) );          // Pos    [4-6]
@@ -254,6 +254,45 @@ void R3LIVE::publish_raw_img( cv::Mat &img )
     out_msg.image = img;                                   // Your cv::Mat
     pub_raw_img.publish( out_msg );
 }
+
+
+// Assuming Image_Frame contains position (vec_3) and orientation (quaternion or similar)
+void R3LIVE::save_raw_img(std::shared_ptr<Image_frame>& img_pose, int index) {
+    // Directories and file paths
+    std::string images_dir = m_map_output_dir + "/images";
+    std::string poses_file_path = m_map_output_dir + "/image_poses.txt";
+
+    // Create the images directory if it does not exist
+    if (!boost::filesystem::exists(images_dir)) {
+        boost::filesystem::create_directories(images_dir);
+    }
+
+    // Format the image file name
+    std::stringstream image_filename_stream;
+    image_filename_stream << "image_" << std::setfill('0') << std::setw(4) << index << ".png";
+    std::string image_filename = image_filename_stream.str();
+
+    // Save the image
+    if (img_pose && !img_pose->m_raw_img.empty()) {
+        cv::imwrite(images_dir + "/" + image_filename, img_pose->m_raw_img);
+    }
+
+    // Extract pose data from img_pose
+    // Replace with actual methods to get position and orientation from img_pose
+    vec_3 position = img_pose->m_pose_w2c_t;
+    auto orientation = img_pose->m_pose_w2c_q;
+
+    // Open poses file in append mode
+    std::ofstream poses_file(poses_file_path, std::ios::app);
+    if (poses_file.is_open()) {
+        // Write image filename, position, and orientation
+        poses_file << image_filename << " " 
+                   << position.x() << " " << position.y() << " " << position.z() << " "
+                   << orientation.x() << " " << orientation.y() << " " 
+                   << orientation.z() << " " << orientation.w() << std::endl;
+    }
+}
+
 
 int        sub_image_typed = 0; // 0: TBD 1: sub_raw, 2: sub_comp
 std::mutex mutex_image_callback;
@@ -1246,10 +1285,12 @@ void R3LIVE::service_VIO_update()
         // publish_track_img( op_track.m_debug_track_img, display_cost_time );
         publish_track_img( img_pose->m_raw_img, display_cost_time );
 
-        if ( m_if_pub_raw_img )
+        if (m_if_pub_raw_img) 
         {
-            publish_raw_img( img_pose->m_raw_img );
+          publish_raw_img(img_pose->m_raw_img);
+          save_raw_img(img_pose, g_camera_frame_idx); // Assuming g_camera_frame_idx is your frame index
         }
+
 
         if ( g_camera_lidar_queue.m_if_dump_log )
         {

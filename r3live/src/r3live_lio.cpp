@@ -864,7 +864,7 @@ int R3LIVE::service_LIO_update()
                     // printf_line;
                     g_lio_state.last_update_time = Measures.lidar_end_time;
                     euler_cur = RotMtoEuler( g_lio_state.rot_end );
-                    dump_lio_state_to_log( m_lio_state_fp );
+                    // dump_lio_state_to_log( m_lio_state_fp );
 
                     /*** Rematch Judgement ***/
                     rematch_en = false;
